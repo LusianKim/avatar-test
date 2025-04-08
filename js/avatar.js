@@ -432,154 +432,63 @@ function speakNext(text, endingSilenceMs = 0) {
 
 // =================== HANDLE USER QUERY ===================
 function handleUserQuery(userQuery, userQueryHTML, imgUrlPath) {
-  let contentMessage = userQuery;
-  if (imgUrlPath.trim()) {
-    contentMessage = [
-      { type: "text", text: userQuery },
-      { type: "image_url", image_url: { url: imgUrlPath } },
-    ];
-  }
-  messages.push({ role: "user", content: contentMessage });
+  if (!userQuery) return;
 
-  const chatHistoryTextArea = document.getElementById("chatHistory");
-  if (
-    chatHistoryTextArea.innerHTML !== "" &&
-    !chatHistoryTextArea.innerHTML.endsWith("\n\n")
-  ) {
-    chatHistoryTextArea.innerHTML += "\n\n";
-  }
-  if (imgUrlPath.trim()) {
-    chatHistoryTextArea.innerHTML += `<br/><br/>User: ${userQueryHTML}`;
-  } else {
-    chatHistoryTextArea.innerHTML += `<br/><br/>User: ${userQuery}<br/>`;
-  }
-  chatHistoryTextArea.scrollTop = chatHistoryTextArea.scrollHeight;
+  const chatHistory = document.getElementById("chatHistory");
+  const userMessageDiv = document.createElement("div");
+  userMessageDiv.className = "user-message";
+  userMessageDiv.innerHTML = `<strong>You:</strong> ${userQueryHTML}`;
+  chatHistory.appendChild(userMessageDiv);
+  chatHistory.scrollTop = chatHistory.scrollHeight;
 
-  if (isSpeaking) stopSpeaking();
-  if (dataSources.length > 0 && enableQuickReply) {
-    speak(getQuickReply(), 2000);
-  }
+  messages.push({ role: "user", content: userQuery });
 
-  const azureOpenAIEndpoint = DEFAULT_SETTINGS.azureOpenAIEndpoint;
-  const azureOpenAIApiKey = DEFAULT_SETTINGS.azureOpenAIApiKey;
-  const azureOpenAIDeploymentName = DEFAULT_SETTINGS.azureOpenAIDeploymentName;
+  const xhr = new XMLHttpRequest();
+  xhr.open(
+    "POST",
+    DEFAULT_SETTINGS.azureOpenAIEndpoint +
+      "openai/deployments/" +
+      DEFAULT_SETTINGS.azureOpenAIDeploymentName +
+      "/chat/completions?api-version=2023-05-15"
+  );
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.setRequestHeader("api-key", DEFAULT_SETTINGS.azureOpenAIApiKey);
 
-  let url = `${azureOpenAIEndpoint}/openai/deployments/${azureOpenAIDeploymentName}/chat/completions?api-version=2023-06-01-preview`;
-  let body = JSON.stringify({ messages, stream: true });
+  xhr.onreadystatechange = function () {
+    if (this.readyState === 4) {
+      if (this.status === 200) {
+        const response = JSON.parse(this.responseText);
+        const assistantMessage = response.choices[0].message.content;
+        messages.push({ role: "assistant", content: assistantMessage });
 
-  if (dataSources.length > 0) {
-    url = `${azureOpenAIEndpoint}/openai/deployments/${azureOpenAIDeploymentName}/extensions/chat/completions?api-version=2023-06-01-preview`;
-    body = JSON.stringify({ dataSources, messages, stream: true });
-  }
+        const assistantMessageDiv = document.createElement("div");
+        assistantMessageDiv.className = "assistant-message";
+        assistantMessageDiv.innerHTML = `<strong>Assistant:</strong> ${assistantMessage}`;
+        chatHistory.appendChild(assistantMessageDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
 
-  let assistantReply = "";
-  let toolContent = "";
-  let spokenSentence = "";
-  let displaySentence = "";
-
-  fetch(url, {
-    method: "POST",
-    headers: {
-      "api-key": azureOpenAIApiKey,
-      "Content-Type": "application/json",
-    },
-    body,
-  })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(
-          `Chat API response: ${response.status} ${response.statusText}`
-        );
+        speak(assistantMessage);
+      } else {
+        console.error("Error:", this.status, this.statusText);
+        const errorMessageDiv = document.createElement("div");
+        errorMessageDiv.className = "error-message";
+        errorMessageDiv.innerHTML = `<strong>Error:</strong> Failed to get response from AI`;
+        chatHistory.appendChild(errorMessageDiv);
       }
-      chatHistoryTextArea.innerHTML += `<br/>Assistant: `;
-      const reader = response.body.getReader();
+    }
+  };
 
-      function read(previousChunkString = "") {
-        return reader.read().then(({ value, done }) => {
-          if (done) return;
-          let chunkString = new TextDecoder().decode(value, { stream: true });
-          if (previousChunkString)
-            chunkString = previousChunkString + chunkString;
-
-          if (
-            !chunkString.endsWith("}\n\n") &&
-            !chunkString.endsWith("[DONE]\n\n")
-          ) {
-            return read(chunkString);
-          }
-          chunkString.split("\n\n").forEach((line) => {
-            if (line.startsWith("data:") && !line.endsWith("[DONE]")) {
-              try {
-                const responseJson = JSON.parse(line.substring(5).trim());
-                let responseToken;
-                if (dataSources.length === 0) {
-                  responseToken = responseJson.choices[0].delta.content;
-                } else {
-                  const role = responseJson.choices[0].messages[0].delta.role;
-                  if (role === "tool") {
-                    toolContent =
-                      responseJson.choices[0].messages[0].delta.content;
-                  } else {
-                    responseToken =
-                      responseJson.choices[0].messages[0].delta.content || "";
-                    if (byodDocRegex.test(responseToken)) {
-                      responseToken = responseToken
-                        .replace(byodDocRegex, "")
-                        .trim();
-                    }
-                    if (responseToken === "[DONE]") responseToken = undefined;
-                  }
-                }
-                if (responseToken) {
-                  assistantReply += responseToken;
-                  displaySentence += responseToken;
-                  if (responseToken === "\n" || responseToken === "\n\n") {
-                    spokenSentence += responseToken;
-                    speak(spokenSentence);
-                    spokenSentence = "";
-                  } else {
-                    spokenSentence += responseToken;
-                    const trimmed = responseToken.replace(/\n/g, "");
-                    if (trimmed.length <= 2) {
-                      for (let punct of sentenceLevelPunctuations) {
-                        if (trimmed.startsWith(punct)) {
-                          speak(spokenSentence);
-                          spokenSentence = "";
-                          break;
-                        }
-                      }
-                    }
-                  }
-                }
-              } catch (err) {
-                console.log("Error parsing chunk: " + err);
-              }
-            }
-          });
-          if (!enableDisplayTextAlignmentWithSpeech) {
-            chatHistoryTextArea.innerHTML += displaySentence.replace(
-              /\n/g,
-              "<br/>"
-            );
-            chatHistoryTextArea.scrollTop = chatHistoryTextArea.scrollHeight;
-            displaySentence = "";
-          }
-          return read();
-        });
-      }
-      return read();
+  xhr.send(
+    JSON.stringify({
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 800,
+      top_p: 0.95,
+      frequency_penalty: 0,
+      presence_penalty: 0,
+      stop: null,
     })
-    .then(() => {
-      if (spokenSentence) {
-        speak(spokenSentence);
-        spokenSentence = "";
-      }
-      if (dataSources.length > 0 && toolContent) {
-        messages.push({ role: "tool", content: toolContent });
-      }
-      messages.push({ role: "assistant", content: assistantReply });
-    })
-    .catch((err) => console.log("fetch error: " + err));
+  );
 }
 
 // HTML encode helper
@@ -593,4 +502,17 @@ function htmlEncode(text) {
     "/": "&#x2F;",
   };
   return String(text).replace(/[&<>"'\/]/g, (m) => entityMap[m]);
+}
+
+// Add this function to handle Enter key press
+function handleKeyDown(event) {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    const userMessageBox = document.getElementById("userMessageBox");
+    const text = userMessageBox.innerText.trim();
+    if (text) {
+      handleUserQuery(text, text, "");
+      userMessageBox.innerText = "";
+    }
+  }
 }

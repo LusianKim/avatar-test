@@ -12,21 +12,24 @@
         display: flex;
         flex-direction: column;
         align-items: center;
+        min-height: 100vh;
       }
       #videoContainer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
         display: flex;
         justify-content: center;
-        margin-bottom: 20px;
-        width: 100%;
-        max-width: 800px;
+        align-items: center;
       }
       #remoteVideo {
         width: 100%;
-        max-width: 640px;
-        height: 360px;
+        height: 100%;
         background-color: #000;
-        border-radius: 10px;
-        overflow: hidden;
+        object-fit: cover;
       }
       #chatHistory {
         width: 100%;
@@ -37,7 +40,8 @@
         padding: 10px;
         margin-bottom: 10px;
         overflow-y: auto;
-        background-color: white;
+        background-color: rgba(255, 255, 255, 0.9);
+        z-index: 1;
       }
       #userMessageBox {
         width: 100%;
@@ -47,7 +51,8 @@
         border-radius: 5px;
         padding: 10px;
         margin-bottom: 10px;
-        background-color: white;
+        background-color: rgba(255, 255, 255, 0.9);
+        z-index: 1;
       }
       #buttonContainer {
         display: flex;
@@ -56,6 +61,7 @@
         width: 100%;
         max-width: 800px;
         justify-content: center;
+        z-index: 1;
       }
       button {
         padding: 10px 20px;
@@ -75,6 +81,7 @@
         margin-bottom: 10px;
         width: 24px;
         height: 24px;
+        z-index: 1;
       }
     </style>
   </head>
@@ -94,7 +101,11 @@
 
     <div id="chatHistory"></div>
 
-    <div id="userMessageBox" contenteditable="true"></div>
+    <div
+      id="userMessageBox"
+      contenteditable="true"
+      onkeydown="handleKeyDown(event)"
+    ></div>
 
     <div id="uploadImgIcon">
       <img
