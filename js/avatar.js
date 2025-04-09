@@ -33,20 +33,95 @@ var lastSpeakTime;
 var imgUrl = "";
 
 // Predefined settings
-const DEFAULT_SETTINGS = {
-  region: "westeurope",
-  APIKey:
-    "2AFeCiGQHFE1gfxGqe5ROLxTaEi8fOERAa70vtwq1sZOngKeLcmVJQQJ99BDAC5RqLJXJ3w3AAAYACOGiZ1h",
+var DEFAULT_SETTINGS = {
+  region: "",
+  APIKey: "",
   talkingAvatarCharacter: "lisa",
   talkingAvatarStyle: "casual-sitting",
   ttsVoice: "en-US-JennyNeural",
   sttLocales: ["en-US"],
-  azureOpenAIEndpoint: "https://8teamfoundrysw5516102114.openai.azure.com/",
-  azureOpenAIApiKey:
-    "E7EAWlPdMlioGpTflIhpobAZclEvi8DRGSvzfDCZ173xxd4TpIVMJQQJ99BDACfhMk5XJ3w3AAAAACOGDKsS",
-  azureOpenAIDeploymentName: "Agent2_conv",
+  azureOpenAIEndpoint: "",
+  azureOpenAIApiKey: "",
+  azureOpenAIDeploymentName: "",
+  cognitiveSearchEndpoint: "",
+  cognitiveSearchKey: "",
+  cognitiveSearchIndexName: "",
   prompt: "You are a helpful AI assistant.",
 };
+
+// Load configuration from server
+async function loadConfig() {
+  try {
+    console.log("Starting to load configuration...");
+    const response = await fetch("http://localhost:3000/api/config");
+    const config = await response.json();
+
+    console.log("Received configuration:", {
+      hasApiKey: !!config.speechApiKey,
+      hasOpenAIKey: !!config.azureOpenAIApiKey,
+      endpoint: config.azureOpenAIEndpoint,
+      deploymentName: config.azureOpenAIDeploymentName,
+    });
+
+    DEFAULT_SETTINGS.region = config.speechRegion;
+    DEFAULT_SETTINGS.APIKey = config.speechApiKey;
+    DEFAULT_SETTINGS.azureOpenAIEndpoint = config.azureOpenAIEndpoint;
+    DEFAULT_SETTINGS.azureOpenAIApiKey = config.azureOpenAIApiKey;
+    DEFAULT_SETTINGS.azureOpenAIDeploymentName =
+      config.azureOpenAIDeploymentName;
+    DEFAULT_SETTINGS.cognitiveSearchEndpoint = config.cognitiveSearchEndpoint;
+    DEFAULT_SETTINGS.cognitiveSearchKey = config.cognitiveSearchKey;
+    DEFAULT_SETTINGS.cognitiveSearchIndexName = config.cognitiveSearchIndex;
+
+    console.log("Configuration loaded into DEFAULT_SETTINGS:", {
+      hasApiKey: !!DEFAULT_SETTINGS.APIKey,
+      hasOpenAIKey: !!DEFAULT_SETTINGS.azureOpenAIApiKey,
+      endpoint: DEFAULT_SETTINGS.azureOpenAIEndpoint,
+      deploymentName: DEFAULT_SETTINGS.azureOpenAIDeploymentName,
+    });
+
+    // Start the application after loading config
+    initializeApp();
+  } catch (error) {
+    console.error("Error loading configuration:", error);
+  }
+}
+
+// Initialize the application
+function initializeApp() {
+  try {
+    // Initialize Speech SDK
+    if (typeof SpeechSDK === "undefined") {
+      console.error("Speech SDK not loaded");
+      return;
+    }
+
+    // Set initial UI state
+    document.getElementById("microphone").disabled = true;
+    document.getElementById("stopSession").disabled = true;
+    document.getElementById("chatHistory").hidden = false;
+    document.getElementById("userMessageBox").hidden = false;
+    document.getElementById("uploadImgIcon").hidden = false;
+
+    // Start avatar session
+    connectAvatar();
+
+    // Set up periodic checks with a delay to ensure elements are loaded
+    setTimeout(() => {
+      setInterval(() => {
+        if (sessionActive) {
+          checkHung();
+          checkLastSpeak();
+        }
+      }, 2000);
+    }, 5000); // Wait 5 seconds before starting checks
+  } catch (error) {
+    console.error("Error in initialization:", error);
+  }
+}
+
+// Update window.onload to use the new initialization
+window.onload = loadConfig;
 
 // =================== CONNECT AVATAR SERVICE ===================
 function connectAvatar() {
@@ -228,12 +303,20 @@ function initMessages() {
 
 // =================== DISCONNECT AVATAR ===================
 function disconnectAvatar() {
-  if (avatarSynthesizer) avatarSynthesizer.close();
-  if (speechRecognizer) {
-    speechRecognizer.stopContinuousRecognitionAsync();
-    speechRecognizer.close();
+  try {
+    if (avatarSynthesizer) {
+      avatarSynthesizer.close();
+      avatarSynthesizer = null;
+    }
+    if (speechRecognizer) {
+      speechRecognizer.stopContinuousRecognitionAsync();
+      speechRecognizer.close();
+      speechRecognizer = null;
+    }
+    sessionActive = false;
+  } catch (error) {
+    console.error("Error in disconnectAvatar:", error);
   }
-  sessionActive = false;
 }
 
 // =================== BUTTON HANDLERS ===================
@@ -300,59 +383,55 @@ function clearChatHistory() {
 
 // =================== HUNG & IDLE CHECKS ===================
 function checkHung() {
-  const videoElement = document.getElementById("videoPlayer");
-  if (videoElement && sessionActive) {
+  try {
+    const videoElement = document.getElementById("videoPlayer");
+    if (!videoElement || !sessionActive) return;
+
     const videoTime = videoElement.currentTime;
     setTimeout(() => {
-      if (videoElement.currentTime === videoTime && sessionActive) {
+      if (
+        videoElement &&
+        videoElement.currentTime === videoTime &&
+        sessionActive
+      ) {
         sessionActive = false;
         console.log("Video stream disconnected, auto reconnecting...");
-        if (avatarSynthesizer) avatarSynthesizer.close();
+        if (avatarSynthesizer) {
+          avatarSynthesizer.close();
+          avatarSynthesizer = null;
+        }
         connectAvatar();
       }
     }, 2000);
+  } catch (error) {
+    console.error("Error in checkHung:", error);
   }
 }
 
 function checkLastSpeak() {
-  if (!lastSpeakTime) return;
-  const now = new Date();
-  if (now - lastSpeakTime > 15000) {
-    disconnectAvatar();
-    document.getElementById("localVideo").hidden = false;
-    document.getElementById("remoteVideo").style.width = "0.1px";
-    sessionActive = false;
+  try {
+    if (!lastSpeakTime || !sessionActive) return;
+
+    const now = new Date();
+    if (now - lastSpeakTime > 15000) {
+      const localVideo = document.getElementById("localVideo");
+      const remoteVideo = document.getElementById("remoteVideo");
+
+      if (localVideo) {
+        localVideo.hidden = false;
+      }
+      if (remoteVideo) {
+        remoteVideo.style.width = "0.1px";
+      }
+
+      if (sessionActive) {
+        disconnectAvatar();
+      }
+    }
+  } catch (error) {
+    console.error("Error in checkLastSpeak:", error);
   }
 }
-
-// =================== INITIALIZATION ===================
-window.onload = () => {
-  try {
-    // Initialize Speech SDK
-    if (typeof SpeechSDK === "undefined") {
-      console.error("Speech SDK not loaded");
-      return;
-    }
-
-    // Set initial UI state
-    document.getElementById("microphone").disabled = true;
-    document.getElementById("stopSession").disabled = true;
-    document.getElementById("chatHistory").hidden = false;
-    document.getElementById("userMessageBox").hidden = false;
-    document.getElementById("uploadImgIcon").hidden = false;
-
-    // Start avatar session
-    connectAvatar();
-
-    // Set up periodic checks
-    setInterval(() => {
-      checkHung();
-      checkLastSpeak();
-    }, 2000);
-  } catch (error) {
-    console.error("Error in window.onload:", error);
-  }
-};
 
 // =================== TTS FUNCTION ===================
 function speak(text, endingSilenceMs = 0) {
@@ -443,52 +522,120 @@ function handleUserQuery(userQuery, userQueryHTML, imgUrlPath) {
 
   messages.push({ role: "user", content: userQuery });
 
-  const xhr = new XMLHttpRequest();
-  xhr.open(
-    "POST",
+  // --- Cognitive Search Integration Start ---
+  const cognitiveSearchEndpoint = DEFAULT_SETTINGS.cognitiveSearchEndpoint;
+  const cognitiveSearchKey = DEFAULT_SETTINGS.cognitiveSearchKey;
+  const cognitiveSearchIndexName = DEFAULT_SETTINGS.cognitiveSearchIndexName;
+
+  let useCognitiveSearch =
+    cognitiveSearchEndpoint && cognitiveSearchKey && cognitiveSearchIndexName;
+
+  let url =
     DEFAULT_SETTINGS.azureOpenAIEndpoint +
-      "openai/deployments/" +
-      DEFAULT_SETTINGS.azureOpenAIDeploymentName +
-      "/chat/completions?api-version=2023-05-15"
-  );
+    "openai/deployments/" +
+    DEFAULT_SETTINGS.azureOpenAIDeploymentName;
+
+  if (useCognitiveSearch) {
+    url += "/extensions/chat/completions?api-version=2023-06-01-preview";
+  } else {
+    url += "/chat/completions?api-version=2023-06-01-preview";
+  }
+
+  let requestBody = {
+    messages: messages,
+    temperature: 0.7,
+    max_tokens: 800,
+    top_p: 0.95,
+    frequency_penalty: 0,
+    presence_penalty: 0,
+    stop: null,
+  };
+
+  if (useCognitiveSearch) {
+    requestBody.dataSources = [
+      {
+        type: "AzureCognitiveSearch",
+        parameters: {
+          endpoint: cognitiveSearchEndpoint,
+          key: cognitiveSearchKey,
+          indexName: cognitiveSearchIndexName,
+        },
+      },
+    ];
+  }
+  // --- Cognitive Search Integration End ---
+
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", url); // Use the dynamically constructed URL
   xhr.setRequestHeader("Content-Type", "application/json");
   xhr.setRequestHeader("api-key", DEFAULT_SETTINGS.azureOpenAIApiKey);
 
   xhr.onreadystatechange = function () {
     if (this.readyState === 4) {
       if (this.status === 200) {
-        const response = JSON.parse(this.responseText);
-        const assistantMessage = response.choices[0].message.content;
-        messages.push({ role: "assistant", content: assistantMessage });
+        try {
+          const response = JSON.parse(this.responseText);
+          let assistantMessage = "";
 
-        const assistantMessageDiv = document.createElement("div");
-        assistantMessageDiv.className = "assistant-message";
-        assistantMessageDiv.innerHTML = `<strong>Assistant:</strong> ${assistantMessage}`;
-        chatHistory.appendChild(assistantMessageDiv);
-        chatHistory.scrollTop = chatHistory.scrollHeight;
+          // Handle both standard and Cognitive Search response formats
+          if (response.choices && response.choices[0]) {
+            if (response.choices[0].message) {
+              // Standard format
+              assistantMessage = response.choices[0].message.content;
+            } else if (response.choices[0].messages) {
+              // Cognitive Search format
+              const messages = response.choices[0].messages;
+              // Find the assistant message
+              const assistantResponse = messages.find(
+                (m) => m.role === "assistant"
+              );
+              if (assistantResponse) {
+                assistantMessage = assistantResponse.content;
+              }
+            }
+          }
 
-        speak(assistantMessage);
+          if (assistantMessage) {
+            messages.push({ role: "assistant", content: assistantMessage });
+
+            const assistantMessageDiv = document.createElement("div");
+            assistantMessageDiv.className = "assistant-message";
+            assistantMessageDiv.innerHTML = `<strong>Assistant:</strong> ${assistantMessage}`;
+            chatHistory.appendChild(assistantMessageDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            speak(assistantMessage);
+          } else {
+            throw new Error("No assistant message found in response");
+          }
+        } catch (error) {
+          console.error("Error parsing response:", error, this.responseText);
+          const errorMessageDiv = document.createElement("div");
+          errorMessageDiv.className = "error-message";
+          errorMessageDiv.innerHTML = `<strong>Error:</strong> Failed to parse API response. Check console for details.`;
+          chatHistory.appendChild(errorMessageDiv);
+        }
       } else {
-        console.error("Error:", this.status, this.statusText);
+        console.error("Error Details:", {
+          status: this.status,
+          statusText: this.statusText,
+          responseText: this.responseText,
+          endpoint: DEFAULT_SETTINGS.azureOpenAIEndpoint,
+          deploymentName: DEFAULT_SETTINGS.azureOpenAIDeploymentName,
+          apiKeyLength: DEFAULT_SETTINGS.azureOpenAIApiKey
+            ? DEFAULT_SETTINGS.azureOpenAIApiKey.length
+            : 0,
+        });
+
         const errorMessageDiv = document.createElement("div");
         errorMessageDiv.className = "error-message";
-        errorMessageDiv.innerHTML = `<strong>Error:</strong> Failed to get response from AI`;
+        errorMessageDiv.innerHTML = `<strong>Error:</strong> Failed to get response from AI. Status: ${this.status} - ${this.statusText}. Check console for details.`;
         chatHistory.appendChild(errorMessageDiv);
       }
     }
   };
 
-  xhr.send(
-    JSON.stringify({
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 800,
-      top_p: 0.95,
-      frequency_penalty: 0,
-      presence_penalty: 0,
-      stop: null,
-    })
-  );
+  xhr.send(JSON.stringify(requestBody)); // Send the constructed request body
 }
 
 // HTML encode helper
@@ -516,3 +663,27 @@ function handleKeyDown(event) {
     }
   }
 }
+
+// =================== STOP SPEAKING ===================
+function stopSpeaking() {
+  try {
+    spokenTextQueue = [];
+    if (avatarSynthesizer) {
+      avatarSynthesizer
+        .stopSpeakingAsync()
+        .then(() => {
+          isSpeaking = false;
+          document.getElementById("stopSpeaking").disabled = true;
+          console.log("Stop speaking request sent.");
+        })
+        .catch((err) => {
+          console.error("Error stopping speaking:", err);
+        });
+    }
+  } catch (error) {
+    console.error("Error in stopSpeaking:", error);
+  }
+}
+
+// Make stopSpeaking available globally
+window.stopSpeaking = stopSpeaking;

@@ -7,8 +7,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve static files
-app.use(express.static(path.join(__dirname)));
+// Serve static files from root directory
+app.use(express.static(__dirname));
+
+// Serve static files from js directory
+app.use("/js", express.static(path.join(__dirname, "js")));
+
+// Default route to serve avatar.html
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "avatar.html"));
+});
 
 // API endpoint to get configuration
 app.get("/api/config", (req, res) => {
@@ -24,7 +32,13 @@ app.get("/api/config", (req, res) => {
   });
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send("Something broke!");
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
