@@ -213,6 +213,10 @@ function connectAvatar() {
 // =================== SETUP WEBSOCKET & AVATAR ===================
 function setupWebRTC(iceServerUrl, iceServerUsername, iceServerCredential) {
   try {
+    if (peerConnection) {
+      peerConnection.close();
+    }
+
     peerConnection = new RTCPeerConnection({
       iceServers: [
         {
@@ -268,6 +272,10 @@ function setupWebRTC(iceServerUrl, iceServerUsername, iceServerCredential) {
 
     peerConnection.oniceconnectionstatechange = () => {
       console.log("ICE state: " + peerConnection.iceConnectionState);
+      if (peerConnection.iceConnectionState === "disconnected") {
+        console.log("Reconnecting...");
+        setupWebRTC(iceServerUrl, iceServerUsername, iceServerCredential);
+      }
     };
 
     peerConnection.addTransceiver("video", { direction: "sendrecv" });
@@ -414,16 +422,10 @@ function checkLastSpeak() {
 
     const now = new Date();
     if (now - lastSpeakTime > 15000) {
-      const localVideo = document.getElementById("localVideo");
       const remoteVideo = document.getElementById("remoteVideo");
-
-      if (localVideo) {
-        localVideo.hidden = false;
-      }
       if (remoteVideo) {
         remoteVideo.style.width = "0.1px";
       }
-
       if (sessionActive) {
         disconnectAvatar();
       }
