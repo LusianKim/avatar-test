@@ -350,35 +350,83 @@ function microphone() {
     );
     return;
   }
+
   micBtn.disabled = true;
+
+  // Add events to capture all speech recognition states
+  speechRecognizer.recognizing = function (s, e) {
+    console.log("Speech recognizing:", e.result.text);
+  };
+
   speechRecognizer.recognized = async (s, e) => {
+    console.log("Speech recognized, reason:", e.result.reason);
     if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
       const userQuery = e.result.text.trim();
-      if (!userQuery) return;
+      console.log("Recognized speech text:", userQuery);
+
+      if (!userQuery) {
+        console.log("Empty query, ignoring");
+        return;
+      }
+
       micBtn.disabled = true;
+
+      // First add the message to chat history immediately
+      addUserMessageToChat(userQuery);
+      console.log("Added speech to chat history:", userQuery);
+
+      // Then stop recognition
       speechRecognizer.stopContinuousRecognitionAsync(
         () => {
           micBtn.innerHTML = "Start Microphone";
           micBtn.disabled = false;
+          console.log("Recognition stopped after speech detection");
+
+          // And finally make the API call
+          console.log("Sending to handleUserQuery:", userQuery);
+          handleUserQuery(userQuery, userQuery, "");
         },
         (err) => {
           console.log("Error stopping recognition:", err);
           micBtn.disabled = false;
         }
       );
-      handleUserQuery(userQuery, "", "");
     }
   };
+
+  // Add handler for speech recognition errors
+  speechRecognizer.canceled = function (s, e) {
+    console.log("Speech recognition canceled:", e.errorDetails);
+    micBtn.disabled = false;
+    micBtn.innerHTML = "Start Microphone";
+  };
+
   speechRecognizer.startContinuousRecognitionAsync(
     () => {
+      console.log("Speech recognition started");
       micBtn.innerHTML = "Stop Microphone";
       micBtn.disabled = false;
+      sessionActive = true;
     },
     (err) => {
       console.log("Failed to start recognition:", err);
       micBtn.disabled = false;
     }
   );
+}
+
+// New function to add user message to chat immediately
+function addUserMessageToChat(userText) {
+  console.log("Adding user message to chat:", userText);
+  const chatHistory = document.getElementById("chatHistory");
+  const userMessageDiv = document.createElement("div");
+  userMessageDiv.className = "user-message";
+  userMessageDiv.innerHTML = `<strong>You:</strong> ${userText}`;
+  chatHistory.appendChild(userMessageDiv);
+  chatHistory.scrollTop = chatHistory.scrollHeight;
+
+  // Set a flag to prevent duplicate messages in handleUserQuery
+  window.lastAddedMessage = userText;
 }
 
 function stopSession() {
@@ -519,14 +567,26 @@ function speakNext(text, endingSilenceMs = 0) {
 
 // =================== HANDLE USER QUERY ===================
 function handleUserQuery(userQuery, userQueryHTML, imgUrlPath) {
-  if (!userQuery) return;
+  if (!userQuery) {
+    console.log("Empty query in handleUserQuery, returning");
+    return;
+  }
 
-  const chatHistory = document.getElementById("chatHistory");
-  const userMessageDiv = document.createElement("div");
-  userMessageDiv.className = "user-message";
-  userMessageDiv.innerHTML = `<strong>You:</strong> ${userQueryHTML}`;
-  chatHistory.appendChild(userMessageDiv);
-  chatHistory.scrollTop = chatHistory.scrollHeight;
+  console.log("handleUserQuery called with:", userQuery);
+
+  // Check a flag set by addUserMessageToChat to prevent duplicates
+  if (window.lastAddedMessage !== userQuery) {
+    const chatHistory = document.getElementById("chatHistory");
+    const userMessageDiv = document.createElement("div");
+    userMessageDiv.className = "user-message";
+    userMessageDiv.innerHTML = `<strong>You:</strong> ${
+      userQueryHTML || userQuery
+    }`;
+    chatHistory.appendChild(userMessageDiv);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+  } else {
+    console.log("Message already added to chat, skipping duplicate");
+  }
 
   messages.push({ role: "user", content: userQuery });
 
