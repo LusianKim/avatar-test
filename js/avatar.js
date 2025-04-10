@@ -17,7 +17,7 @@ var sentenceLevelPunctuations = [
   "：",
   "；",
 ];
-var enableDisplayTextAlignmentWithSpeech = true;
+var enableDisplayTextAlignmentWithSpeech = false;
 var enableQuickReply = false;
 var quickReplies = [
   "Let me take a look.",
@@ -415,14 +415,54 @@ function microphone() {
   );
 }
 
+// Helper function to get formatted timestamp
+function getCurrentTime() {
+  const now = new Date();
+  let hours = now.getHours();
+  let minutes = now.getMinutes();
+
+  // Ensure two digits
+  hours = hours < 10 ? "0" + hours : hours;
+  minutes = minutes < 10 ? "0" + minutes : minutes;
+
+  return `${hours}:${minutes}`;
+}
+
 // New function to add user message to chat immediately
 function addUserMessageToChat(userText) {
   console.log("Adding user message to chat:", userText);
   const chatHistory = document.getElementById("chatHistory");
+
+  // Create a wrapper div to contain everything properly
+  const messageContainer = document.createElement("div");
+  messageContainer.style.width = "100%";
+  messageContainer.style.textAlign = "right";
+
   const userMessageDiv = document.createElement("div");
   userMessageDiv.className = "user-message";
-  userMessageDiv.innerHTML = `<strong>You:</strong> ${userText}`;
-  chatHistory.appendChild(userMessageDiv);
+
+  // Create the text content
+  const textSpan = document.createElement("span");
+  const content = userText;
+  // Format user messages the same way as assistant messages
+  if (!content.includes("<img")) {
+    // Skip formatting if it contains an image
+    textSpan.innerHTML = `<p>${content.replace(/\n/g, "<br>")}</p>`;
+    textSpan.style.whiteSpace = "pre-wrap";
+  } else {
+    textSpan.innerHTML = content;
+  }
+  userMessageDiv.appendChild(textSpan);
+
+  // Create the timestamp
+  const timestamp = document.createElement("span");
+  timestamp.className = "message-timestamp";
+  timestamp.textContent = getCurrentTime();
+  userMessageDiv.appendChild(timestamp);
+
+  messageContainer.appendChild(userMessageDiv);
+  chatHistory.appendChild(messageContainer);
+
   chatHistory.scrollTop = chatHistory.scrollHeight;
 
   // Set a flag to prevent duplicate messages in handleUserQuery
@@ -525,11 +565,12 @@ function speakNext(text, endingSilenceMs = 0) {
                 </speak>`;
   }
 
-  const chatHistoryTextArea = document.getElementById("chatHistory");
-  if (enableDisplayTextAlignmentWithSpeech) {
-    chatHistoryTextArea.innerHTML += text.replace(/\n/g, "<br/>");
-    chatHistoryTextArea.scrollTop = chatHistoryTextArea.scrollHeight;
-  }
+  // Disable this feature to prevent duplicate messages
+  // const chatHistoryTextArea = document.getElementById("chatHistory");
+  // if (enableDisplayTextAlignmentWithSpeech) {
+  //   chatHistoryTextArea.innerHTML += text.replace(/\n/g, "<br/>");
+  //   chatHistoryTextArea.scrollTop = chatHistory.scrollHeight;
+  // }
 
   lastSpeakTime = new Date();
   isSpeaking = true;
@@ -572,23 +613,81 @@ function handleUserQuery(userQuery, userQueryHTML, imgUrlPath) {
     return;
   }
 
-  console.log("handleUserQuery called with:", userQuery);
+  console.log(
+    "handleUserQuery called with:",
+    userQuery,
+    "Image:",
+    imgUrlPath ? "Yes" : "No"
+  );
 
   // Check a flag set by addUserMessageToChat to prevent duplicates
   if (window.lastAddedMessage !== userQuery) {
     const chatHistory = document.getElementById("chatHistory");
+
+    // Create a wrapper div to contain everything properly
+    const messageContainer = document.createElement("div");
+    messageContainer.style.width = "100%";
+    messageContainer.style.textAlign = "right";
+
     const userMessageDiv = document.createElement("div");
     userMessageDiv.className = "user-message";
-    userMessageDiv.innerHTML = `<strong>You:</strong> ${
-      userQueryHTML || userQuery
-    }`;
-    chatHistory.appendChild(userMessageDiv);
+
+    // Create the text content
+    const textSpan = document.createElement("span");
+    const content = userQueryHTML || userQuery;
+    // Format user messages the same way as assistant messages
+    if (!content.includes("<img")) {
+      // Skip formatting if it contains an image
+      textSpan.innerHTML = `<p>${content.replace(/\n/g, "<br>")}</p>`;
+      textSpan.style.whiteSpace = "pre-wrap";
+    } else {
+      textSpan.innerHTML = content;
+    }
+    userMessageDiv.appendChild(textSpan);
+
+    // Create the timestamp
+    const timestamp = document.createElement("span");
+    timestamp.className = "message-timestamp";
+    timestamp.textContent = getCurrentTime();
+    userMessageDiv.appendChild(timestamp);
+
+    messageContainer.appendChild(userMessageDiv);
+    chatHistory.appendChild(messageContainer);
+
     chatHistory.scrollTop = chatHistory.scrollHeight;
   } else {
     console.log("Message already added to chat, skipping duplicate");
   }
 
-  messages.push({ role: "user", content: userQuery });
+  // Create user message with optional image
+  let userMessage = { role: "user", content: userQuery };
+
+  // If there's an image, append it to the message content in a format Azure OpenAI understands
+  if (imgUrlPath) {
+    try {
+      // For image content, we need to create a message with multiple parts
+      userMessage = {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: userQuery,
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: imgUrlPath,
+            },
+          },
+        ],
+      };
+      console.log("Created multimodal message with image");
+    } catch (error) {
+      console.error("Error creating image message:", error);
+    }
+  }
+
+  messages.push(userMessage);
 
   // --- Cognitive Search Integration Start ---
   const cognitiveSearchEndpoint = DEFAULT_SETTINGS.cognitiveSearchEndpoint;
@@ -674,10 +773,51 @@ function handleUserQuery(userQuery, userQueryHTML, imgUrlPath) {
           if (assistantMessage) {
             messages.push({ role: "assistant", content: assistantMessage });
 
+            // Create a wrapper div to contain everything properly
+            const messageContainer = document.createElement("div");
+            messageContainer.style.width = "100%";
+            messageContainer.style.textAlign = "left";
+
             const assistantMessageDiv = document.createElement("div");
             assistantMessageDiv.className = "assistant-message";
-            assistantMessageDiv.innerHTML = `<strong>Assistant:</strong> ${assistantMessage}`;
-            chatHistory.appendChild(assistantMessageDiv);
+
+            // Create the text content with improved formatting
+            const textSpan = document.createElement("span");
+            // Format the message:
+            // 1. Replace newlines with <br> tags
+            // 2. Format lists properly
+            // 3. Add proper paragraph spacing
+            // 4. Format code blocks
+            const formattedText = assistantMessage
+              // Format code blocks
+              .replace(
+                /```(\w*)\n([\s\S]*?)\n```/g,
+                (match, language, code) => {
+                  return `<pre><code class="language-${
+                    language || "text"
+                  }">${htmlEncode(code)}</code></pre>`;
+                }
+              )
+              // Format inline code
+              .replace(/`([^`]+)`/g, "<code>$1</code>")
+              .replace(/\n\n/g, "</p><p>") // Double line breaks become paragraphs
+              .replace(/\n- /g, "<br>• ") // Lists with dashes
+              .replace(/\n\d+\. /g, (match) => "<br>" + match.trim()) // Numbered lists
+              .replace(/\n/g, "<br>"); // Single line breaks
+
+            textSpan.innerHTML = `<p>${formattedText}</p>`;
+            textSpan.style.whiteSpace = "pre-wrap"; // Preserve whitespace
+            assistantMessageDiv.appendChild(textSpan);
+
+            // Create the timestamp
+            const timestamp = document.createElement("span");
+            timestamp.className = "message-timestamp";
+            timestamp.textContent = getCurrentTime();
+            assistantMessageDiv.appendChild(timestamp);
+
+            messageContainer.appendChild(assistantMessageDiv);
+            chatHistory.appendChild(messageContainer);
+
             chatHistory.scrollTop = chatHistory.scrollHeight;
 
             speak(assistantMessage);
@@ -685,11 +825,31 @@ function handleUserQuery(userQuery, userQueryHTML, imgUrlPath) {
             throw new Error("No assistant message found in response");
           }
         } catch (error) {
-          console.error("Error parsing response:", error, this.responseText);
+          console.error("Error parsing response:", error);
+
+          // Create a wrapper div to contain everything properly
+          const messageContainer = document.createElement("div");
+          messageContainer.style.width = "100%";
+          messageContainer.style.textAlign = "left";
+
           const errorMessageDiv = document.createElement("div");
           errorMessageDiv.className = "error-message";
-          errorMessageDiv.innerHTML = `<strong>Error:</strong> Failed to parse API response. Check console for details.`;
-          chatHistory.appendChild(errorMessageDiv);
+
+          // Create the text content
+          const textSpan = document.createElement("span");
+          textSpan.textContent = `Error: Failed to parse API response. Check console for details.`;
+          errorMessageDiv.appendChild(textSpan);
+
+          // Create the timestamp
+          const timestamp = document.createElement("span");
+          timestamp.className = "message-timestamp";
+          timestamp.textContent = getCurrentTime();
+          errorMessageDiv.appendChild(timestamp);
+
+          messageContainer.appendChild(errorMessageDiv);
+          chatHistory.appendChild(messageContainer);
+
+          chatHistory.scrollTop = chatHistory.scrollHeight;
         }
       } else {
         console.error("Error Details:", {
@@ -703,10 +863,29 @@ function handleUserQuery(userQuery, userQueryHTML, imgUrlPath) {
             : 0,
         });
 
+        // Create a wrapper div to contain everything properly
+        const messageContainer = document.createElement("div");
+        messageContainer.style.width = "100%";
+        messageContainer.style.textAlign = "left";
+
         const errorMessageDiv = document.createElement("div");
         errorMessageDiv.className = "error-message";
-        errorMessageDiv.innerHTML = `<strong>Error:</strong> Failed to get response from AI. Status: ${this.status} - ${this.statusText}. Check console for details.`;
-        chatHistory.appendChild(errorMessageDiv);
+
+        // Create the text content
+        const textSpan = document.createElement("span");
+        textSpan.textContent = `Error: Failed to get response from AI. Status: ${this.status} - ${this.statusText}. Check console for details.`;
+        errorMessageDiv.appendChild(textSpan);
+
+        // Create the timestamp
+        const timestamp = document.createElement("span");
+        timestamp.className = "message-timestamp";
+        timestamp.textContent = getCurrentTime();
+        errorMessageDiv.appendChild(timestamp);
+
+        messageContainer.appendChild(errorMessageDiv);
+        chatHistory.appendChild(messageContainer);
+
+        chatHistory.scrollTop = chatHistory.scrollHeight;
       }
     }
   };
@@ -731,12 +910,17 @@ function htmlEncode(text) {
 function handleKeyDown(event) {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
-    const userMessageBox = document.getElementById("userMessageBox");
-    const text = userMessageBox.innerText.trim();
-    if (text) {
-      handleUserQuery(text, text, "");
-      userMessageBox.innerText = "";
-    }
+    sendMessage();
+  }
+}
+
+// Send message function (used by both Enter key and Send button)
+function sendMessage() {
+  const userMessageBox = document.getElementById("userMessageBox");
+  const text = userMessageBox.innerText.trim();
+  if (text) {
+    handleUserQuery(text, text, "");
+    userMessageBox.innerText = "";
   }
 }
 
@@ -763,3 +947,110 @@ function stopSpeaking() {
 
 // Make stopSpeaking available globally
 window.stopSpeaking = stopSpeaking;
+
+// =================== IMAGE UPLOAD HANDLING ===================
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Check file type
+  if (!file.type.match("image.*")) {
+    alert("Please select an image file");
+    return;
+  }
+
+  // Check file size (limit to 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    alert("Image size is too large. Please select an image under 5MB.");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    imgUrl = e.target.result;
+
+    // Show preview in chat
+    const chatHistory = document.getElementById("chatHistory");
+    const imgPreviewDiv = document.createElement("div");
+    imgPreviewDiv.className = "img-preview";
+
+    // Create elements directly instead of using template literals with whitespace
+    const container = document.createElement("div");
+    container.style.margin = "10px 0";
+
+    const strong = document.createElement("strong");
+    strong.textContent = "Image Selected:";
+    container.appendChild(strong);
+
+    container.appendChild(document.createElement("br"));
+
+    const img = document.createElement("img");
+    img.src = imgUrl;
+    img.style.maxWidth = "200px";
+    img.style.maxHeight = "200px";
+    img.style.marginTop = "5px";
+    img.style.borderRadius = "5px";
+    container.appendChild(img);
+
+    const buttonDiv = document.createElement("div");
+    buttonDiv.style.marginTop = "5px";
+
+    const sendButton = document.createElement("button");
+    sendButton.textContent = "Send this image";
+    sendButton.onclick = function () {
+      sendImageMessage(file.name);
+    };
+    buttonDiv.appendChild(sendButton);
+
+    const cancelButton = document.createElement("button");
+    cancelButton.textContent = "Cancel";
+    cancelButton.onclick = cancelImageUpload;
+    buttonDiv.appendChild(cancelButton);
+
+    container.appendChild(buttonDiv);
+
+    const timestamp = document.createElement("span");
+    timestamp.className = "message-timestamp";
+    timestamp.textContent = getCurrentTime();
+    container.appendChild(timestamp);
+
+    imgPreviewDiv.appendChild(container);
+    chatHistory.appendChild(imgPreviewDiv);
+
+    // Scroll to bottom
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+
+    // Reset the file input
+    document.getElementById("fileInput").value = "";
+  };
+  reader.readAsDataURL(file);
+}
+
+function cancelImageUpload() {
+  // Remove the preview
+  const previews = document.querySelectorAll(".img-preview");
+  if (previews.length > 0) {
+    previews[previews.length - 1].remove();
+  }
+  imgUrl = "";
+}
+
+function sendImageMessage(fileName) {
+  if (!imgUrl) return;
+
+  // Create a message with the image
+  const userQuery = `[Sending image: ${fileName}]`;
+  const userQueryHTML = `[Sending image: ${fileName}]<br><img src="${imgUrl}" style="max-width: 200px; max-height: 200px; margin-top: 5px; border-radius: 5px;">`;
+
+  // Remove the preview
+  const previews = document.querySelectorAll(".img-preview");
+  if (previews.length > 0) {
+    previews[previews.length - 1].remove();
+  }
+
+  // Send the message with the image
+  handleUserQuery(userQuery, userQueryHTML, imgUrl);
+
+  // Reset the image URL
+  imgUrl = "";
+}

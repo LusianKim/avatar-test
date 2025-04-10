@@ -10,7 +10,7 @@
         font-family: Arial, sans-serif;
         margin: 0;
         padding: 20px;
-        background-color: #f0f2f5;
+        background-color: #ffffff;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -19,7 +19,7 @@
       #videoContainer {
         position: fixed;
         top: 0;
-        left: 20%;
+        right: 55%;
         width: 100%;
         height: 100%;
         z-index: -1;
@@ -44,16 +44,132 @@
         overflow-y: auto;
         background-color: rgba(255, 255, 255, 0.9);
         z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
       }
-      #userMessageBox {
+      /* iMessage style chat bubbles */
+      .user-message,
+      .assistant-message,
+      .error-message,
+      .img-preview {
+        max-width: 70%;
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 18px;
+        position: relative;
+        clear: both;
+        word-wrap: break-word;
+        display: inline-block;
+      }
+      /* Remove unnecessary pseudo-element for clearfix */
+      /* #chatHistory::after {
+        content: "";
+        display: table;
+        clear: both;
+      } */
+      .user-message {
+        background-color: #0b93f6;
+        color: white;
+        float: right;
+        align-self: flex-end;
+        margin-left: 20%;
+        border-bottom-right-radius: 5px;
+      }
+      .assistant-message {
+        background-color: #e5e5ea;
+        color: black;
+        float: left;
+        align-self: flex-start;
+        margin-right: 20%;
+        border-bottom-left-radius: 5px;
+      }
+      /* Text formatting styles */
+      .assistant-message p {
+        margin: 0 0 8px 0;
+      }
+      .assistant-message p:last-child {
+        margin-bottom: 0;
+      }
+      .assistant-message ul,
+      .assistant-message ol {
+        margin-top: 4px;
+        margin-bottom: 4px;
+        padding-left: 20px;
+      }
+      .assistant-message code {
+        background-color: rgba(0, 0, 0, 0.05);
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-family: monospace;
+      }
+      .assistant-message pre {
+        background-color: rgba(0, 0, 0, 0.05);
+        padding: 10px;
+        border-radius: 5px;
+        overflow-x: auto;
+        margin: 8px 0;
+      }
+      .assistant-message pre code {
+        background-color: transparent;
+        padding: 0;
+        border-radius: 0;
+        font-family: monospace;
+        white-space: pre;
+        display: block;
+      }
+      .error-message {
+        background-color: #ff6b6b;
+        color: white;
+        float: left;
+        margin-right: 20%;
+      }
+      .img-preview {
+        background-color: #f0f0f0;
+        width: 60%;
+        margin: 10px auto;
+        text-align: center;
+        float: none;
+      }
+      /* Hide name prefixes as they're implied by position */
+      .user-message strong,
+      .assistant-message strong {
+        display: none;
+      }
+      #messageInputContainer {
         width: 100%;
         max-width: 800px;
+        height: 100px;
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        z-index: 1;
+      }
+      #userMessageBox {
+        flex: 1;
         height: 100px;
         border: 1px solid #ddd;
         border-radius: 5px;
         padding: 10px;
-        margin-bottom: 10px;
         background-color: rgba(255, 255, 255, 0.9);
+        z-index: 1;
+      }
+      #sendBtn {
+        align-self: flex-end;
+        height: 100px;
+        padding: 0 20px;
+        background-color: #0078d4;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      #uploadImgIcon {
+        cursor: pointer;
+        margin-bottom: 10px;
+        width: 24px;
+        height: 24px;
         z-index: 1;
       }
       #buttonContainer {
@@ -78,12 +194,17 @@
         background-color: #ccc;
         cursor: not-allowed;
       }
-      #uploadImgIcon {
-        cursor: pointer;
-        margin-bottom: 10px;
-        width: 24px;
-        height: 24px;
-        z-index: 1;
+      .message-timestamp {
+        font-size: 11px;
+        opacity: 0.7;
+        margin-top: 5px;
+        display: block;
+      }
+      .user-message .message-timestamp {
+        text-align: right;
+      }
+      .assistant-message .message-timestamp {
+        text-align: left;
       }
     </style>
   </head>
@@ -103,19 +224,29 @@
 
     <div id="chatHistory"></div>
 
-    <div
-      id="userMessageBox"
-      contenteditable="true"
-      onkeydown="handleKeyDown(event)"
-    ></div>
-
-    <div id="uploadImgIcon">
-      <img
-        src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMSAxNnY0YTIgMiAwIDAgMS0yIDJINWEyIDIgMCAwIDEtMi0ydi00Ij48L3BhdGg+PHBvbHlsaW5lIHBvaW50cz0iMTcgOCAxMiAzIDcgOCI+PC9wb2x5bGluZT48bGluZSB4MT0iMTIiIHkxPSIzIiB4Mj0iMTIiIHkyPSIxNSI+PC9saW5lPjwvc3ZnPg=="
-        width="24"
-        height="24"
-        alt="Upload Image"
-      />
+    <div id="messageInputContainer">
+      <div
+        id="userMessageBox"
+        contenteditable="true"
+        onkeydown="handleKeyDown(event)"
+      ></div>
+      <button id="sendBtn" onclick="sendMessage()">Send</button>
+      <div id="uploadImgIcon">
+        <img
+          src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMSAxNnY0YTIgMiAwIDAgMS0yIDJINWEyIDIgMCAwIDEtMi0ydi00Ij48L3BhdGg+PHBvbHlsaW5lIHBvaW50cz0iMTcgOCAxMiAzIDcgOCI+PC9wb2x5bGluZT48bGluZSB4MT0iMTIiIHkxPSIzIiB4Mj0iMTIiIHkyPSIxNSI+PC9saW5lPjwvc3ZnPg=="
+          width="24"
+          height="24"
+          alt="Upload Image"
+          onclick="document.getElementById('fileInput').click();"
+        />
+        <input
+          type="file"
+          id="fileInput"
+          accept="image/*"
+          style="display: none"
+          onchange="handleImageUpload(event)"
+        />
+      </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk@latest/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle-min.js"></script>
