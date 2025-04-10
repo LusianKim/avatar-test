@@ -61,6 +61,9 @@ async function loadConfig() {
       hasOpenAIKey: !!config.azureOpenAIApiKey,
       endpoint: config.azureOpenAIEndpoint,
       deploymentName: config.azureOpenAIDeploymentName,
+      cognitiveSearchEndpoint: config.cognitiveSearchEndpoint,
+      cognitiveSearchKey: !!config.cognitiveSearchKey,
+      cognitiveSearchIndex: config.cognitiveSearchIndex,
     });
 
     DEFAULT_SETTINGS.region = config.speechRegion;
@@ -78,6 +81,9 @@ async function loadConfig() {
       hasOpenAIKey: !!DEFAULT_SETTINGS.azureOpenAIApiKey,
       endpoint: DEFAULT_SETTINGS.azureOpenAIEndpoint,
       deploymentName: DEFAULT_SETTINGS.azureOpenAIDeploymentName,
+      cognitiveSearchEndpoint: DEFAULT_SETTINGS.cognitiveSearchEndpoint,
+      cognitiveSearchKey: !!DEFAULT_SETTINGS.cognitiveSearchKey,
+      cognitiveSearchIndexName: DEFAULT_SETTINGS.cognitiveSearchIndexName,
     });
 
     // Start the application after loading config
@@ -532,6 +538,13 @@ function handleUserQuery(userQuery, userQueryHTML, imgUrlPath) {
   let useCognitiveSearch =
     cognitiveSearchEndpoint && cognitiveSearchKey && cognitiveSearchIndexName;
 
+  console.log("Cognitive Search Settings:", {
+    endpoint: cognitiveSearchEndpoint,
+    hasKey: !!cognitiveSearchKey,
+    indexName: cognitiveSearchIndexName,
+    useCognitiveSearch: useCognitiveSearch,
+  });
+
   let url =
     DEFAULT_SETTINGS.azureOpenAIEndpoint +
     "openai/deployments/" +
@@ -564,6 +577,7 @@ function handleUserQuery(userQuery, userQueryHTML, imgUrlPath) {
         },
       },
     ];
+    console.log("Added data sources to request body:", requestBody.dataSources);
   }
   // --- Cognitive Search Integration End ---
 
