@@ -109,6 +109,9 @@ function initializeApp() {
     document.getElementById("userMessageBox").hidden = false;
     document.getElementById("uploadImgIcon").hidden = false;
 
+    // Show welcome message
+    showWelcomeMessage();
+
     // Start avatar session
     connectAvatar();
 
@@ -124,6 +127,152 @@ function initializeApp() {
   } catch (error) {
     console.error("Error in initialization:", error);
   }
+}
+
+// Show welcome message with AzureLearner information
+function showWelcomeMessage() {
+  const chatHistory = document.getElementById("chatHistory");
+
+  // Create a welcome message container
+  const welcomeContainer = document.createElement("div");
+  welcomeContainer.style.width = "100%";
+  welcomeContainer.style.textAlign = "center";
+  welcomeContainer.style.marginBottom = "20px";
+
+  // Create the welcome content
+  const welcomeContent = document.createElement("div");
+  welcomeContent.style.display = "inline-block";
+  welcomeContent.style.padding = "24px";
+  welcomeContent.style.overflow = "hidden";
+  welcomeContent.style.justifyContent = "center";
+  welcomeContent.style.alignItems = "center";
+  welcomeContent.style.gap = "2px";
+  welcomeContent.style.display = "flex";
+  welcomeContent.style.flexWrap = "wrap";
+  welcomeContent.style.alignContent = "center";
+  welcomeContent.style.maxWidth = "100%";
+  welcomeContent.style.backgroundColor = "#f9f9f9";
+  welcomeContent.style.borderRadius = "12px";
+  welcomeContent.style.boxShadow = "0 2px 10px rgba(0,0,0,0.1)";
+
+  // Title with beta label
+  const titleContainer = document.createElement("div");
+  titleContainer.style.width = "100%";
+  titleContainer.style.textAlign = "center";
+  titleContainer.style.marginBottom = "10px";
+
+  const titleSpan = document.createElement("span");
+  titleSpan.style.color = "black";
+  titleSpan.style.fontSize = "26px";
+  titleSpan.style.fontFamily = "Inter, Arial, sans-serif";
+  titleSpan.style.fontWeight = "700";
+  titleSpan.textContent = "AzureLearner";
+
+  const betaSpan = document.createElement("span");
+  betaSpan.style.color = "rgba(0, 0, 0, 0.60)";
+  betaSpan.style.fontSize = "15px";
+  betaSpan.style.fontFamily = "Inter, Arial, sans-serif";
+  betaSpan.style.fontWeight = "300";
+  betaSpan.style.marginLeft = "5px";
+  betaSpan.textContent = "beta";
+
+  titleContainer.appendChild(titleSpan);
+  titleContainer.appendChild(betaSpan);
+  welcomeContent.appendChild(titleContainer);
+
+  // Description
+  const descriptionDiv = document.createElement("div");
+  descriptionDiv.style.marginBottom = "15px";
+  descriptionDiv.style.width = "100%";
+  descriptionDiv.style.textAlign = "center";
+
+  const boldSpan = document.createElement("span");
+  boldSpan.style.color = "rgba(0, 0, 0, 0.80)";
+  boldSpan.style.fontSize = "14px";
+  boldSpan.style.fontFamily = "Noto Sans, Arial, sans-serif";
+  boldSpan.style.fontWeight = "600";
+  boldSpan.textContent = "AzureLearner";
+
+  const normalSpan = document.createElement("span");
+  normalSpan.style.color = "rgba(0, 0, 0, 0.80)";
+  normalSpan.style.fontSize = "14px";
+  normalSpan.style.fontFamily = "Noto Sans, Arial, sans-serif";
+  normalSpan.style.fontWeight = "400";
+  normalSpan.textContent =
+    "는 Microsoft Azure의 제품군의 활용과 이를 통한 서비스 구현을 돕는 비공식 AI 챗봇 서비스입니다.";
+
+  descriptionDiv.appendChild(boldSpan);
+  descriptionDiv.appendChild(normalSpan);
+  welcomeContent.appendChild(descriptionDiv);
+
+  // Links section
+  const linksContainer = document.createElement("div");
+  linksContainer.style.display = "flex";
+  linksContainer.style.justifyContent = "flex-start";
+  linksContainer.style.alignItems = "center";
+  linksContainer.style.gap = "27px";
+
+  const linkLabelDiv = document.createElement("div");
+  linkLabelDiv.style.paddingRight = "12px";
+  linkLabelDiv.style.borderRight = "1px rgba(0, 0, 0, 0.60) solid";
+  linkLabelDiv.style.display = "flex";
+  linkLabelDiv.style.justifyContent = "center";
+  linkLabelDiv.style.alignItems = "center";
+
+  const linkLabelSpan = document.createElement("div");
+  linkLabelSpan.style.color = "rgba(0, 0, 0, 0.60)";
+  linkLabelSpan.style.fontSize = "12px";
+  linkLabelSpan.style.fontFamily = "Noto Sans, Arial, sans-serif";
+  linkLabelSpan.style.fontWeight = "700";
+  linkLabelSpan.textContent = "활용 사이트";
+  linkLabelDiv.appendChild(linkLabelSpan);
+
+  linksContainer.appendChild(linkLabelDiv);
+
+  const linksList = document.createElement("div");
+  linksList.style.display = "flex";
+  linksList.style.justifyContent = "flex-start";
+  linksList.style.alignItems = "flex-start";
+  linksList.style.gap = "14px";
+  linksList.style.flexWrap = "wrap";
+
+  const links = [
+    "learn.microsoft.com/",
+    "azure.microsoft.com/",
+    "github.com/azure/",
+    "techcommunity.microsoft.com/",
+    "docs.microsoft.com/",
+  ];
+
+  links.forEach((link) => {
+    const linkElement = document.createElement("div");
+    linkElement.style.color = "#407FFF";
+    linkElement.style.fontSize = "12px";
+    linkElement.style.fontFamily = "Noto Sans, Arial, sans-serif";
+    linkElement.style.fontWeight = "400";
+    linkElement.style.textDecoration = "underline";
+    linkElement.style.cursor = "pointer";
+
+    // Create actual anchor element
+    const anchor = document.createElement("a");
+    anchor.href = "https://" + link;
+    anchor.target = "_blank"; // Open in new tab
+    anchor.style.color = "#407FFF";
+    anchor.style.textDecoration = "inherit";
+    anchor.textContent = link;
+
+    linkElement.appendChild(anchor);
+    linksList.appendChild(linkElement);
+  });
+
+  linksContainer.appendChild(linksList);
+  welcomeContent.appendChild(linksContainer);
+
+  welcomeContainer.appendChild(welcomeContent);
+  chatHistory.appendChild(welcomeContainer);
+
+  // Scroll to the bottom of the chat history
+  chatHistory.scrollTop = chatHistory.scrollHeight;
 }
 
 // Update window.onload to use the new initialization
