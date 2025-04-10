@@ -7,3 +7,5 @@
 
 To check the endpoint and API validity:
 chat.html and enter configurations 
+
+Currently divided, working seperate as avatar.html and index.html
