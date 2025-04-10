@@ -104,7 +104,6 @@ function initializeApp() {
 
     // Set initial UI state
     document.getElementById("microphone").disabled = true;
-    document.getElementById("stopSession").disabled = true;
     document.getElementById("chatHistory").hidden = false;
     document.getElementById("userMessageBox").hidden = false;
     document.getElementById("uploadImgIcon").hidden = false;
@@ -199,7 +198,7 @@ function showWelcomeMessage() {
   normalSpan.style.fontFamily = "Noto Sans, Arial, sans-serif";
   normalSpan.style.fontWeight = "400";
   normalSpan.textContent =
-    "는 Microsoft Azure의 제품군의 활용과 이를 통한 서비스 구현을 돕는 비공식 AI 챗봇 서비스입니다.";
+    "는 Microsoft Azure 제품군의 활용과 이를 통한 서비스 구현을 돕는 비공식 AI 챗봇 서비스입니다.";
 
   descriptionDiv.appendChild(boldSpan);
   descriptionDiv.appendChild(normalSpan);
@@ -214,7 +213,7 @@ function showWelcomeMessage() {
 
   const linkLabelDiv = document.createElement("div");
   linkLabelDiv.style.paddingRight = "12px";
-  linkLabelDiv.style.borderRight = "1px rgba(0, 0, 0, 0.60) solid";
+  linkLabelDiv.style.borderRight = "0.5px rgba(0, 0, 0, 0.60) solid";
   linkLabelDiv.style.display = "flex";
   linkLabelDiv.style.justifyContent = "center";
   linkLabelDiv.style.alignItems = "center";
@@ -410,7 +409,6 @@ function setupWebRTC(iceServerUrl, iceServerUsername, iceServerCredential) {
           remoteDiv.appendChild(videoElement);
 
           document.getElementById("microphone").disabled = false;
-          document.getElementById("stopSession").disabled = false;
           document.getElementById("chatHistory").hidden = false;
         };
       }
@@ -616,15 +614,6 @@ function addUserMessageToChat(userText) {
 
   // Set a flag to prevent duplicate messages in handleUserQuery
   window.lastAddedMessage = userText;
-}
-
-function stopSession() {
-  disconnectAvatar();
-  document.getElementById("microphone").disabled = true;
-  document.getElementById("stopSession").disabled = true;
-  document.getElementById("chatHistory").hidden = true;
-  document.getElementById("userMessageBox").hidden = true;
-  document.getElementById("uploadImgIcon").hidden = true;
 }
 
 function clearChatHistory() {
